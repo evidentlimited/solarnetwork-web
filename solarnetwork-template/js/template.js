@@ -22,15 +22,15 @@ Template.Element = (function() {
   // Get data-config from element
   this.getConfig = function() {
     // Get all config elements
-    var configElements = document.querySelectorAll('data-config');
+    var elements = document.querySelectorAll('data-config');
     var config = {};
 
     // Get attributes from elements
-    configElements.forEach(function(elm) {
-      if(elm.attributes.node) config.node = elm.getAttribute('node');
-      if(elm.attributes.token) config.token = elm.getAttribute('token');
-      if(elm.attributes.secret) config.secret = elm.getAttribute('secret');
-    });
+    for(var e = 0; e < elements.length; e++) {
+      if(elements[e].attributes.node) config.node = elements[e].getAttribute('node');
+      if(elements[e].attributes.token) config.token = elements[e].getAttribute('token');
+      if(elements[e].attributes.secret) config.secret = elements[e].getAttribute('secret');
+    }
 
     return config;
   }
@@ -45,11 +45,11 @@ Template.Element = (function() {
     var elements = this.Element.getAll();
     var list = [];
     // Iterate elements getting source attributes
-    elements.forEach(function(elm) {
-      var source = elm.getAttribute('source');
+    for(var e = 0; e < elements.length; e++) {
+      var source = elements[e].getAttribute('source');
       // Add source if it exists and isn't already listed
       if(source && list.indexOf(source) == -1) list.push(source);
-    });
+    }
     return list;
   }
 
@@ -127,6 +127,7 @@ Template.SolarNetwork = (function() {
     // Set the headers for authorization
     req.setRequestHeader('X-SN-Date', now);
     req.setRequestHeader('Authorization', `SolarNetworkWS ${this.SolarNetwork.config.token}:${hash}`);
+    req.setRequestHeader('Accept', `application/json`);
     req.send();
   }
 

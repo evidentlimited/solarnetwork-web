@@ -48,6 +48,7 @@ Bringing it all together, an html page could look like this:
 <!DOCTYPE html>
 <html>
   <head>
+    <meta charset="utf-8">
     <title>SolarNetwork Template</title>
     <script src="js/template.js"></script>
     <script src="js/hmac-sha1.js"></script>
