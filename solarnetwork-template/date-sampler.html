@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Template date sampler</title>
+    <style media="screen">
+      body { font-family: Arial; }
+      div { clear: both; padding: 5px; }
+      span { width: 70px; display: block; float: left; }
+      input { width: 50px; float: left; }
+    </style>
+    <script src="js/template.js" charset="utf-8"></script>
+  </head>
+  <body>
+    <div><span>Year</span><input id="year" type="text" onkeyup="test()"></div>
+    <div><span>month</span><input id="month" type="text" onkeyup="test()"></div>
+    <div><span>week</span><input id="week" type="text" onkeyup="test()"></div>
+    <div><span>day</span><input id="day" type="text" onkeyup="test()"></div>
+    <div><span>weekday</span><input id="weekday" type="text" onkeyup="test()"></div>
+    <div><span>hour</span><input id="hour" type="text" onkeyup="test()"></div>
+    <div><span>minute</span><input id="minute" type="text" onkeyup="test()"></div>
+
+    <br><br>
+
+    <p id="example"></p>
+    <data id="date"></data>
+
+    <p>
+      Description:<br>
+      Negative numbers go backwards relativly.<br>
+      Rounding is based on the smallest time period set to a negative number (e.g. hour and month are both set to -1, the date will be rounded to the start of the hour after adjusting).<br>
+      Numbers set to 0 are interpreted as negative numbers meaning they wont actually adjust the date, but they will be used to round (e.g. day set to 0 will round the the start of the day).<br>
+      <br>
+      Positive numbers are not relative, for example month set to 2 will be February, weekday set to 3 will be Wednesday.<br>
+      Positive numbers are added after the date has been adjusted and rounded.
+    </p>
+
+    <script type="text/javascript">
+      function test() {
+        var year = document.getElementById('year').value;
+        var month = document.getElementById('month').value;
+        var week = document.getElementById('week').value;
+        var day = document.getElementById('day').value;
+        var weekday = document.getElementById('weekday').value;
+        var hour = document.getElementById('hour').value;
+        var minute = document.getElementById('minute').value;
+
+        var example = document.getElementById('example');
+        var dateElement = document.getElementById('date');
+
+        dateElement.setAttribute('year', year);
+        dateElement.setAttribute('month', month);
+        dateElement.setAttribute('week', week);
+        dateElement.setAttribute('day', day);
+        dateElement.setAttribute('weekday', weekday);
+        dateElement.setAttribute('hour', hour);
+        dateElement.setAttribute('minute', minute);
+
+        var attributes = [];
+
+        if(year != '') attributes.push(`year="${year}"`);
+        if(month != '') attributes.push(`month="${month}"`);
+        if(week != '') attributes.push(`week="${week}"`);
+        if(day != '') attributes.push(`day="${day}"`);
+        if(weekday != '') attributes.push(`weekday="${weekday}"`);
+        if(hour != '') attributes.push(`hour="${hour}"`);
+        if(minute != '') attributes.push(`minute="${minute}"`);
+
+        example.innerHTML = '&lt;data ' + attributes.join(' ') + '&gt;';
+
+        var time = Template.Time.fromElement(dateElement);
+        dateElement.innerHTML = time.date;
+      }
+    </script>
+  </body>
+</html>

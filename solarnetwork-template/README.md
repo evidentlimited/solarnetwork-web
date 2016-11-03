@@ -66,9 +66,30 @@ Bringing it all together, an html page could look like this:
 </html>
 ```
 
+### Defining dates (W.I.P)
+
+Dates will need to be defined relative to the current date for queries such as today or last week.
+
+proposed approach
+```html
+<!-- Energy use yesterday -->
+<data source="/ZEHNZ/me/1" metric="total" day="-1" aggregate="Day"></data>
+<!-- Energy use on this day last year (NOTE day is required otherwise it will round to the start of the year)-->
+<data source="/ZEHNZ/me/1" metric="total" year="-1" day="0" aggregate="Day"></data>
+<!-- Energy use Last week -->
+<data source="/ZEHNZ/me/1" metric="total" week="-1" aggregate="Week"></data>
+```
+
+All date attributes
+```html
+<data year="-1" month="-1" week="-1" day="-1" hour="-1" minute="-1"></data>
+```
+
 ### TODO
 
 * Add support for public data meaning no token is required.
-* Add support for aggregated values (e.g. 10 minutes = `aggregate="10m"`, 1 day = `aggregate="1d"`)
+* Add defined periods (e.g. today, yesterday, week, month, year).
+* Add support for aggregated values (e.g. `aggregate="Minute"`) [Aggregation list](https://github.com/SolarNetwork/solarnetwork/wiki/SolarQuery-API-enumerated-types).
+* Add poll updates (e.g. update every 5 seconds = `update="5s"`).
 * Implement HMAC-SHA1 hash and base64 encoding into template.js to remove dependencies.
-* Consider adding chart tags which loads in a chart from a query based on the attributes (e.g. `<chart source="sourceId" metric="total" start="2016-11-1" end="2016-11-2" width="600" height="200"></chart>`)
+* Consider adding chart tags which loads in a chart from a query based on the attributes (e.g. `<chart source="sourceId" metric="total" start="2016-11-1" end="2016-11-2" width="600" height="200"></chart>`).
