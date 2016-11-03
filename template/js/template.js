@@ -222,11 +222,6 @@ Template.Datapoint = (function() {
   }
 
   this.update = function(datapoint) {
-    // Query response callback
-    function callback(err, data) {
-
-    }
-
     var params = {
       nodeId: Template.SolarNetwork.config.node,
       sourceId: datapoint.source,
@@ -246,12 +241,16 @@ Template.Datapoint = (function() {
     }
 
     Template.SolarNetwork.query(params, type, function(err, data) {
+      console.log(params);
+      console.log(data);
       if(err) return console.error(err);
       var total = 0;
       var count = 0;
       for (var d = 0; d < data.length; d++) {
-        total += data[d][datapoint.metric];
-        count++;
+        if(data[d][datapoint.metric]) {
+          total += data[d][datapoint.metric];
+          count++;
+        }
       }
       datapoint.element.innerHTML = Template.Datapoint.round(datapoint.average ? total / count : total, datapoint.round);
     });
@@ -303,7 +302,7 @@ Template.Time = (function() {
     if(!isNaN(year) && year > 0) { date.setFullYear(year); }
     if(!isNaN(month) && month > 0) { date.setMonth(month - 1); }
     if(!isNaN(week) && week > 0) {
-      date.setDate(date.getDate() - (date.getDay() - 1));
+      date.setDate(date.getDate() - (date.getDay() - 1));//
       date.setDate(date.getDate() + ((week - 1) * 7));
     }
     if(!isNaN(day) && day > 0) { date.setDate(day); }
