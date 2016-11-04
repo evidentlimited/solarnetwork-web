@@ -386,3 +386,13 @@ Template.Time = (function() {
 
   return this;
 })();
+
+Template.Math = (function() {
+  this.calculate = function(formula, input) {
+    return (function (f, i, g) {// (formular, input, global)
+      for(v in g) { this[v] = g[v] };
+      return eval(f);
+    })(formula, i, this.globalVariables);
+  }
+
+})();

@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Math test</title>
+    <script src="js/math.js" charset="utf-8"></script>
+  </head>
+  <body>
+    <h1>Math test</h1>
+    Input: <input id="input" type="text" value="2,6,8" onkeyup="update()"><br><br>
+    Math: <input id="equation" type="text" value="$1*1000" onkeyup="update()">
+    <h4>Result</h4>
+    <p id="result"></p>
+
+    <script type="text/javascript">
+      function update() {
+        var input = document.getElementById('input').value.split(',');
+        var equation = document.getElementById('equation').value;
+
+        for(var i = 0; i < input.length; i++) {
+          input[i] = parseFloat(input[i]);
+        }
+
+        document.getElementById('result').innerHTML = Calculate(equation, input);
+      }
+
+      update();
+    </script>
+  </body>
+</html>
