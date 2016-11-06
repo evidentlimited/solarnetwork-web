@@ -69,12 +69,6 @@ Template.Element = (function() {
     }
   }
 
-  // Get suffix
-  this.getSuffix = function(value) {
-    if(!value || value.length == 0) return null;
-    return value[value.length - 1];
-  }
-
   // Update data
   this.update = function(data) {
 

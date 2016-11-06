@@ -66,11 +66,59 @@ Bringing it all together, an html page could look like this:
 </html>
 ```
 
-### Defining dates (W.I.P)
+## Date queries
 
-Dates will need to be defined relative to the current date for queries such as today or last week.
+```html
+negative numbers and 0 are relative to the current date:
+<!-- yesterday -->
+<data day="-1">
+<!-- this week -->
+<data week="0">
+<!-- six months ago -->
+<data month="-6">
 
-proposed approach
+positive numbers represent the date:
+<!-- 2015 -->
+<data year="2015">
+<!-- the 2nd of last month -->
+<data month="-1" day="2">
+<!-- the first Saturday of January -->
+<data month="1" weekday="6">
+<!-- this day last year -->
+<data year="-1" day="0">
+
+date attributes:
+<data year month week weekday day hour minute>
+
+dates can be used in combination with the period attribute:
+<!-- the last 3 year -->
+<data year="-3" period="3y">
+<!-- Monday to Friday last week -->
+<data week="-1" period="5d">
+
+period suffixes:
+<period year="1y" month="1M" week="1w" day="1d" hour="1h" minute="1m">
+
+the aggregate attribute will override the aggregate when querying SolarNet:
+<data aggregate="Day">
+<data month="-1" aggregate="Month">
+```
+
+A full list of aggregates can be found [here](https://github.com/SolarNetwork/solarnetwork/wiki/SolarQuery-API-enumerated-types#aggregation-types)
+
+## Update
+
+You can make data "live" by adding the update attribute:
+```html
+<!-- updates default to seconds otherwise the syntax is identical to the period attribute -->
+<!-- update every 5 seconds -->
+<data update="5">
+<!-- update every 1 minute -->
+<data update="1m">
+<!-- update every 5 seconds -->
+<data update="5">
+```
+
 ```html
 <!-- Energy use yesterday -->
 <data source="/ZEHNZ/me/1" metric="total" day="-1" aggregate="Day"></data>
@@ -82,7 +130,7 @@ proposed approach
 
 All date attributes
 ```html
-<data year="-1" month="-1" week="-1" day="-1" hour="-1" minute="-1"></data>
+<data year="-1" month="-1" week="-1" weekday="1" day="-1" hour="-1" minute="-1"></data>
 ```
 
 ### TODO

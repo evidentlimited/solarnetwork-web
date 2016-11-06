@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8">
     <title>SolarNetwork Template</title>
-    <script src="js/template.js"></script>
+    <script src="js/new-template.js"></script>
     <script src="js/hmac-sha1.js"></script>
     <script src="js/enc-base64.js"></script>
-    <data-config node="253" token="gh-28a;tZgC6T;^F*NL$" secret="7^BU1?xz;q6}<HRbQM+5RB}X0"/>
+    <data-config node="253" token="BqaUBw{B>G&Oj$Gg>0dk" secret="a}U`$vjvFd-gwFm<Dvx-+PqP&1q"/>
     <style media="screen">
       body { font-family: Arial; }
       span { display: block; width: 200px; float: left; }
@@ -19,34 +19,37 @@
     <h3>current energy use</h3>
 
     <span>Monitoring System</span>
-    <data source="/ZEHNZ/me/1/1" metric="total">...</data> kWh <br>
+    <data source="/ZEHNZ/me/1/1,/ZEHNZ/me/1/2" metric="actual" update="10s">...</data> kW <br>
 
     <span>Shower hot water</span>
-    <data source="/ZEHNZ/me/1/2" metric="total">...</data> kWh <br>
+    <data source="/ZEHNZ/me/1/2" metric="actual" update="10s">...</data> kW <br>
 
     <span>Fridge</span>
-    <data source="/ZEHNZ/me/1/3" metric="total">...</data> kWh <br>
+    <data source="/ZEHNZ/me/1/3" metric="actual" update="10s">...</data> kW <br>
 
     <span>Lighting</span>
-    <data source="/ZEHNZ/me/1/4" metric="total">...</data> kWh <br>
+    <data source="/ZEHNZ/me/1/4" metric="actual" update="10s">...</data> kW <br>
 
     <span>Fans and towel rails</span>
-    <data source="/ZEHNZ/me/1/5" metric="total">...</data> kWh <br>
+    <data source="/ZEHNZ/me/1/5" metric="actual" update="10s">...</data> kW <br>
 
     <span>Plug outlets</span>
-    <data source="/ZEHNZ/me/1/6" metric="total">...</data> kWh <br>
+    <data source="/ZEHNZ/me/1/6" metric="actual" update="10s">...</data> kW <br>
 
     <span>Rain and greywater pumps</span>
-    <data source="/ZEHNZ/me/1/7" metric="total">...</data> kWh <br>
+    <data source="/ZEHNZ/me/1/7" metric="actual" update="10s">...</data> kW <br>
 
     <span>Oven and hobs</span>
-    <data source="/ZEHNZ/me/1/8" metric="total">...</data> kWh <br>
+    <data source="/ZEHNZ/me/1/8" metric="actual" update="10s">...</data> kW <br>
 
     <span>Hot water cylinder</span>
-    <data source="/ZEHNZ/me/1/9" metric="total">...</data> kWh <br>
+    <data source="/ZEHNZ/me/1/9" metric="actual" update="10s">...</data> kW <br>
 
-    <span>Total</span>
-    <data source="/ZEHNZ/me/1" metric="total">...</data> kWh <br>
+    <span>Total consumption</span>
+    <data source="/ZEHNZ/ME/1" metric="actual" update="10s">...</data> kW <br>
+
+    <span>Total generation</span>
+    <data source="/ZEHNZ/me/2" metric="actual" update="10s">...</data> kW <br>
 
 
 
@@ -79,8 +82,11 @@
     <span>Hot water cylinder</span>
     <data source="/ZEHNZ/me/1/9" metric="total" day="-1">...</data> kWh <br>
 
-    <span>Total</span>
-    <data source="/ZEHNZ/me/1" metric="total" day="-1">...</data> kWh <br>
+    <span>Total consumption</span>
+    <data source="/ZEHNZ/ME/1" metric="total" day="-1">...</data> kWh <br>
+
+    <span>Total generation</span>
+    <data source="/ZEHNZ/me/2" metric="total" day="-1">...</data> kWh <br>
 
 
     <!--
