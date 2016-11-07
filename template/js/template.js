@@ -285,8 +285,7 @@ Template.Time = (function() {
     if(!isNaN(year) && year > 0) { date.year(year); }
     if(!isNaN(month) && month > 0) { date.month(month - 1); }
     if(!isNaN(week) && week > 0) {
-      date.day(1);//
-      date.add(week - 1, 'w');
+      date.add(week, 'w');
     }
     if(!isNaN(day) && day > 0) { date.date(day); }
     if(!isNaN(weekday) && weekday > 0) { date.day(weekday); }

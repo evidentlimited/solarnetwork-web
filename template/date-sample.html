@@ -9,6 +9,8 @@
       span { width: 70px; display: block; float: left; }
       input { width: 50px; float: left; }
     </style>
+    <script src="js/moment.min.js" charset="utf-8"></script>
+    <script src="js/moment-timezone-with-data.min.js" charset="utf-8"></script>
     <script src="js/template.js" charset="utf-8"></script>
   </head>
   <body>
@@ -69,7 +71,7 @@
         example.innerHTML = '&lt;data ' + attributes.join(' ') + '&gt;';
 
         var time = Template.Time.fromElement(dateElement);
-        dateElement.innerHTML = time.date;
+        dateElement.innerHTML = time.start;
       }
     </script>
   </body>
