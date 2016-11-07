@@ -39,6 +39,7 @@ Required:
 
 Optional:
 * round = the maximum number of decimal places (default = 2, can be set to 0 for a whole number)
+* year, month, week, weekday, day, hour, minute ([read more](#date-queries))
 
 ## Example
 
@@ -128,6 +129,8 @@ You can make data "live" by adding the update attribute:
 <data source="/ZEHNZ/me/1" metric="total" week="-1" aggregate="Week"></data>
 ```
 
+Note - Aggregate isn't required, if it is left out it will be automatically set based on the query
+
 All date attributes
 ```html
 <data year="-1" month="-1" week="-1" weekday="1" day="-1" hour="-1" minute="-1"></data>
@@ -136,8 +139,5 @@ All date attributes
 ### TODO
 
 * Add support for public data meaning no token is required.
-* Add defined periods (e.g. today, yesterday, week, month, year).
-* Add support for aggregated values (e.g. `aggregate="Minute"`) [Aggregation list](https://github.com/SolarNetwork/solarnetwork/wiki/SolarQuery-API-enumerated-types).
-* Add poll updates (e.g. update every 5 seconds = `update="5s"`).
 * Implement HMAC-SHA1 hash and base64 encoding into template.js to remove dependencies.
-* Consider adding chart tags which loads in a chart from a query based on the attributes (e.g. `<chart source="sourceId" metric="total" start="2016-11-1" end="2016-11-2" width="600" height="200"></chart>`).
+* Charts! `<chart source="..." metric="..." week="-1">`

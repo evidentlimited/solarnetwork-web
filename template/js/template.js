@@ -1,310 +1,299 @@
 var Template = (function() {
-  // Get elements and fill with data when the page has loaded
-  window.onload = function() {
-    Template.SolarNetwork.setConfig(Template.Element.getConfig());
-    Template.Datapoint.initiate();
-  }
+  window.onload = function() { Template.initiate(); };
 
-  return this;
-})();
-
-// __________________________ ELEMENT __________________________
-
-Template.Element = (function() {
-  // data bindings
-  this.bindings = { current: {}, aggregated: {} };
-
-  // Get data-config from element
-  this.getConfig = function() {
-    // Get all config elements
-    var elements = document.querySelectorAll('data-config');
-    var config = {};
-
-    // Get attributes from elements
-    for(var e = 0; e < elements.length; e++) {
-      if(elements[e].attributes.node) config.node = elements[e].getAttribute('node');
-      if(elements[e].attributes.token) config.token = elements[e].getAttribute('token');
-      if(elements[e].attributes.secret) config.secret = elements[e].getAttribute('secret');
-    }
-
-    return config;
-  }
-
-  // Get all data elements
-  this.getAll = function() {
-    return document.querySelectorAll('data');
-  }
-
-  // Get a list of sources
-  this.getSources = function() {
-    var elements = this.Element.getAll();
-    var list = [];
-    // Iterate elements getting source attributes
-    for(var e = 0; e < elements.length; e++) {
-      var source = elements[e].getAttribute('source');
-      // Add source if it exists and isn't already listed
-      if(source && list.indexOf(source) == -1) list.push(source);
-    }
-    return list;
-  }
-
-  // Fill data elements with data
-  this.fill = function(data) {
-    elements = this.Element.getAll();
-    // Iterate elements and data, matching source and metric
-    for(var e = 0; e < elements.length; e++) {
-      var source = elements[e].getAttribute('source');
-      var metric = elements[e].getAttribute('metric');
-      var round = parseInt(elements[e].getAttribute('round'));
-      for(var d = 0; d < data.length; d++) {
-        if(source == data[d].sourceId) {
-          // Insert data in element
-          if(data[d][metric]) {
-            // Round the value (default = 2)
-            var value = this.Element.round(data[d][metric], round);
-            elements[e].innerHTML = value;
-          }
-        }
-      }
-    }
-  }
-
-  // Update data
-  this.update = function(data) {
-
-    Template.SolarNetwork.query(data, function(err, result) {
-      if(err) return console.error(err);
-      // Template.Element.fill(result);
+  this.initiate = function() {
+    Template.SolarNetwork.setConfig();
+    Template.SolarNetwork.getTimezone(function(err, timezone) {
+      if(err) return console.log('Error getting timezone: ' + err);
+      Template.SolarNetwork.config.timezone = timezone;
+      Template.Element.build();
     });
   }
 
+  this.config = {};
+  this.variables = {};
+  this.setVariable = function(key, value) { this.variables[key] = value; }
+
   return this;
 })();
 
-// __________________________ SOLARNETWORK __________________________
-
-Template.SolarNetwork = (function() {
-  // Defaults
-  this.host = 'https://data.solarnetwork.net';
-  this.config = {};
-
-  // Set the SolarNetwork config
-  this.setConfig = function(config) {
-    this.SolarNetwork.config = config;
+Template.Element = (function() {
+  this.all = function(tag) {
+    return document.querySelectorAll(tag);
   }
 
-  // SolarNetwork HTTP request with authentication
-  this.request = function(path, params, next) {
-    // Build the path
-    var fullPath = path + '?' + this.SolarNetwork.buildQueryString(params);
+  this.build = function() {
+    var variable = this.Element.all('var');
+    var data = this.Element.all('data');
+    for(var v = 0; v < variable.length; v++) {
+      this.Element.elementQuery(variable[v]);
+      if(variable[v].getAttribute('key') && variable[v].getAttribute('value')) {
+        this.setVariable(variable[v].getAttribute('key'), variable[v].getAttribute('value'));
+      }
+    }
+    for(var d = 0; d < data.length; d++) this.Element.elementQuery(data[d]);
+  }
 
-    // Get the current time as a UTC string
-    var now = (new Date()).toUTCString();
-    // Build the message to be hashed
-    var msg = `GET\n\n\n${now}\n${fullPath}`;
-    // Hash the message with HMAC-SHA1 and base64 encode
-    var hash = CryptoJS.enc.Base64.stringify(CryptoJS.HmacSHA1(msg, this.config.secret));
-    // Create the HTTP request
+  this.elementQuery = function(element) {
+    var query = this.Element.getElementQuery(element);
+
+    if(!query) return;
+
+    Template.SolarNetwork.query(query.type, query.params, function(err, result) {
+      if(err) return console.error(err);
+      this.Element.elementUpdate(element, result);
+    });
+  }
+
+  this.getElementQuery = function(element) {
+    function a(n) { return element.getAttribute(n); }
+    var source = a('source'), metric = a('metric'), aggregate = a('aggregate'), round = parseInt(a('round')) || 2,
+        time = Template.Time.fromElement(element),
+        update = Template.Time.periodFromString(a('update'));
+
+    if(!source || !metric) return;
+
+    var params = {
+      [source.indexOf(',') == -1 ? 'sourceId' : 'sourceIds']: source,
+      dataPath: 'i.' + metric
+    };
+
+    var type = '';
+
+    if(time.current) {
+      type = 'mostRecent';
+    } else {
+      type = 'list';
+      params.startDate = time.start;
+      params.aggregate = time.aggregate;
+      if(time.end) {
+        params.endDate = time.end;
+      } else {
+        params['sort[0].sortKey'] = 'created';
+        params.max = 1;
+      }
+    }
+
+    return { type: type, params, params };
+  }
+
+  this.elementUpdate = function(element, result) {
+    function a(n) { return element.getAttribute(n); }
+    var sources = a('source').split(','),
+        metric = a('metric'),
+        update = a('update'),
+        key = a('key'),
+        round = parseInt(a('round')) || 2,
+        override = a('override'),
+        modify = a('modify'),
+        adjust = a('adjust'),
+        average = a('average') == 'false' ? false : element.hasAttribute('average'),
+        debug = { queryResult: result };
+
+    var calculated = [];
+
+    // override SolarNetwork response processing
+    if(override) {
+      calculated = this.Calculate.func(override, result);
+      debug.overrideResult = calculated;
+    } else {
+      result.forEach(function(datum) {
+        var idx = sources.indexOf(datum.sourceId);
+        if(idx != -1 && datum[metric] != null) {
+          if(!calculated[idx]) calculated[idx] = { total: 0, count: 0 };
+          calculated[idx].total += datum[metric];
+          calculated[idx].count++;
+        }
+      });
+      for(c in calculated) { calculated[c] = average ? calculated[c].total / calculated[c].count : calculated[c].total };
+
+      debug.autoProcessResult = calculated;
+
+      // modify array of source values
+      if(modify) {
+        if(modify != 'none') calculated = this.Calculate.func(modify, calculated);
+        debug.modifyResult = calculated;
+      } else {
+        var total = 0, count = 0;
+        calculated.forEach(function(c) { total += c; count++ });
+        calculated = total / count;
+        debug.autoSumResult = calculated;
+      }
+    }
+    // adjust single value
+    if(adjust) {
+      calculated = this.Calculate.func(adjust, calculated);
+      debug.adjustResult = calculated;
+    }
+    // round the result
+    calculated = this.Calculate.round(calculated, round);
+    // set global variable
+    if(key) this.setVariable(key, calculated);
+    element.value = calculated;
+
+    if(element.tagName == 'DATA') element.innerHTML = calculated;
+
+    if(update) {
+      var delay = this.Time.millisecondsFromPeriod(update);
+      if(delay == null || delay < 1000) delay = 1000;
+
+      debug.updateDelay = delay;
+
+      setTimeout(function() {
+        Template.Element.elementQuery(element);
+      }, delay);
+    }
+
+    return debug;
+  }
+
+  return this;
+})();
+
+Template.SolarNetwork = (function() {
+  this.HOST = 'https://data.solarnetwork.net';
+
+  this.setConfig = function() {
+    var elements = this.Element.all('data-config');
+    this.SolarNetwork.config = {};
+    for(var e = 0; e < elements.length; e++) {
+      if(elements[e].getAttribute('node')) this.SolarNetwork.config.node = elements[e].getAttribute('node');
+      if(elements[e].getAttribute('token')) this.SolarNetwork.config.token = elements[e].getAttribute('token');
+      if(elements[e].getAttribute('secret')) this.SolarNetwork.config.secret = elements[e].getAttribute('secret');
+    }
+  }
+
+  // make an authenticated request
+  this.query = function(type, params, next) {
+    params.nodeId = this.SolarNetwork.config.node;
+    var path = `/solarquery/api/v1/sec/datum/${type}?${this.SolarNetwork.buildQuery(params)}`,
+        now = (new Date()).toUTCString(),
+        msg = `GET\n\n\n${now}\n${path}`;
+    // hash the message with hmac-sha1 and base64 encode
+    var hash = CryptoJS.enc.Base64.stringify(CryptoJS.HmacSHA1(msg, this.SolarNetwork.config.secret));
+
     var req = new XMLHttpRequest();
     req.onreadystatechange = function() {
       if (this.readyState == 4) {
         if(this.status == 200) {
-          // Callback with the JSON response
-          next(null, JSON.parse(this.responseText));
-        } else {
+          var response = JSON.parse(this.responseText);
+          if(response.success) { // Callback with the JSON response
+            next(null, response.data.results);
+          } else { // Callback with error
+            next(response);
+          }
+        } else { // Callback with error
           next(this.responseText);
         }
       }
     };
-    req.open('GET', this.SolarNetwork.host + fullPath, true);
-    // Set the headers for authorization
+    req.open('GET', this.SolarNetwork.HOST + path, true);
     req.setRequestHeader('X-SN-Date', now);
     req.setRequestHeader('Authorization', `SolarNetworkWS ${this.SolarNetwork.config.token}:${hash}`);
     req.setRequestHeader('Accept', `application/json`);
     req.send();
   }
 
-  // Query datapoint
-  this.query = function(params, type, next) {
-    var path = '/solarquery/api/v1/sec/datum/' + type;
-
-    this.SolarNetwork.request(path, params, function(err, response) {
-      if(err) return next(err);
-      if(!response.success) return next(response);
-      next(null, response.data.results);
-    });
-  }
-
-  // Build a query string from a JSON object and sort alphabetically
-  this.buildQueryString = function(params) {
-    var keys = [];
-    for(key in params) {
-      keys.push(key);
-    }
-    // Sort keys (SolarNetwork requires alphabetically sorted query parameters for authorization)
-    var keys = keys.sort();
-    var queryArray = [];
-    // Build the parameters based on the sorted keys
+  // build a sorted query string from an object (SolarNetwork requires alphabetically sorted query parameters for authorization)
+  this.buildQuery = function(params) {
+    var keys = [], paramArray = [];
+    for(key in params) { keys.push(key); }
+    keys = keys.sort();
     for(var i = 0; i < keys.length; i++) {
-      queryArray.push(keys[i] + '=' + params[keys[i]]);
+      paramArray.push(keys[i] + '=' + params[keys[i]]);
     }
-    // Return the joined parameters
-    return queryArray.join('&');
+    return paramArray.join('&');
   }
 
-  return this;
-})();
-
-// __________________________ DATAPOINT __________________________
-
-Template.Datapoint = (function() {
-
-  this.initiate = function() {
-    var list = this.Datapoint.buildList();
-    for (var l = 0; l < list.length; l++) {
-      this.Datapoint.update(list[l]);
-    }
-  }
-
-  this.buildList = function() {
-    // Built list
-    var list = [];
-    // All data elements
-    var elements = this.Element.getAll();
-
-    for (var e = 0; e < elements.length; e++) {
-      var source = elements[e].getAttribute('source');
-      var metric = elements[e].getAttribute('metric');
-      var time = Template.Time.fromElement(elements[e]);
-      var period = Template.Time.periodFromString(elements[e].getAttribute('period'));
-      // If null set the period to the time if it isnt current
-      if(!period) period = { period: time.current ? null : time.period, value: 1 };
-      // Set aggregate or calculate from period
-      var aggregate = elements[e].getAttribute('aggregate') || Template.Time.aggregateFromPeriod(period.period);
-      var round = parseInt(elements[e].getAttribute('round'));
-      // Defalt rounding
-      if(isNaN(round)) round = 2;
-      var update = Template.Time.periodFromString(elements[e].getAttribute('update'));
-      // if average attribute exists and isn't false, set to true
-      var average = elements[e].getAttribute('average') == 'false' ? false : elements[e].hasAttribute('average');
-      // Require source and metric
-      if(source && source != '' && metric && metric != '') {
-        list.push({
-          element: elements[e],
-          source: source,
-          metric: metric,
-          time: time, // { current: true } or { current: false, date: xxx, period: x }
-          period: period, // { period: x, value: x }
-          aggregate: aggregate,
-          round: round,
-          update: update
-        });
-      } else {
-        console.error('Error: data elements require source and metric attributes, ignoring element...');
-      }
-    }
-
-    // Round to x decimal places
-    this.round = function(value, decimals) {
-      if(isNaN(decimals)) decimals = 2;
-      var multiplier = 1;
-      for(var d = 0; d < decimals; d++) { multiplier *= 10; }
-      return Math.round(value * multiplier) / multiplier;
-    }
-
-    return list;
-  }
-
-  this.update = function(datapoint) {
-    var params = {
-      nodeId: Template.SolarNetwork.config.node,
-      sourceId: datapoint.source,
-      dataPath: 'i.' + datapoint.metric
-    }
-
-    var type = '';
-
-    if(datapoint.time.current) {
-      type = 'mostRecent';
-    } else {
-      type = 'list';
-      var endDate = new Date(datapoint.time.date.getTime() + (datapoint.period.value * Template.Time.getPeriodMultiplier(datapoint.period.period)));
-      params.startDate = Template.Time.formatUrlDate(datapoint.time.date);
-      params.endDate = Template.Time.formatUrlDate(endDate);
-      if(datapoint.aggregate) params.aggregate = datapoint.aggregate;
-    }
-
-    Template.SolarNetwork.query(params, type, function(err, data) {
-      console.log(params);
-      console.log(data);
-      if(err) return console.error(err);
-      var total = 0;
-      var count = 0;
-      for (var d = 0; d < data.length; d++) {
-        if(data[d][datapoint.metric]) {
-          total += data[d][datapoint.metric];
-          count++;
+  this.getTimezone = function(next) {
+    var req = new XMLHttpRequest();
+    req.onreadystatechange = function() {
+      if (this.readyState == 4) {
+        if(this.status == 200) {
+          var response = JSON.parse(this.responseText);
+          if(response.success && response.data != null && response.data.timeZone != null) { // Callback with the JSON response
+            next(null, response.data.timeZone);
+          } else { // Callback with error
+            next(response);
+          }
+        } else { // Callback with error
+          next(this.responseText);
         }
       }
-      datapoint.element.innerHTML = Template.Datapoint.round(datapoint.average ? total / count : total, datapoint.round);
-    });
-
-    if(datapoint.update != null) {
-      var duration = datapoint.update.value * Template.Time.getPeriodMultiplier(datapoint.update.period);
-      // Call next update
-      setTimeout(function() { Template.Datapoint.update(datapoint); }, duration);
-    }
+    };
+    req.open('GET', this.SolarNetwork.HOST + '/solarquery/api/v1/pub/range/interval?nodeId=' + this.SolarNetwork.config.node, true);
+    req.setRequestHeader('Accept', `application/json`);
+    req.send();
   }
 
   return this;
 })();
-
-// __________________________ TIME __________________________
 
 Template.Time = (function() {
   // period suffix
   this.periodSuffixes = ['s', 'm', 'h', 'd', 'w', 'M', 'y'];
 
-  this.queryDates = function(element) {
-    var date = new Date();
-  }
-
   // Get Date from elements attributes
   this.fromElement = function(element) {
-    var date = new Date();
+    var now = moment.tz(new Date(), Template.SolarNetwork.config.timezone);
+    console.log(now);
+    var start = this.Time.startDateFromElement(element);
+    var period = this.Time.periodFromString(element.getAttribute('period'));
+    var aggregate = element.getAttribute('aggregate');
+    if(!start) {
+      if(!period) {
+        return { current: true };
+      } else {
+        var duration = period.value * this.Time.getPeriodMultiplier(period.period);
+        if(!aggregate) aggregate = this.Time.aggregateFromDuration(duration);
+        return { start: this.Time.formatUrlDate(now.getTime() - duration), aggregate: aggregate };
+      }
+    } else {
+      if(!period) {
+        if(!aggregate) aggregate = this.Time.aggregateFromPeriod(start.period);
+        return { start: this.Time.formatUrlDate(start.date), aggregate: aggregate };
+      } else {
+        var duration = period.value * this.Time.getPeriodMultiplier(period.period);
+        if(!aggregate) aggregate = this.Time.aggregateFromDuration(duration);
+        return {
+          start: this.Time.formatUrlDate(start.date),
+          end: this.Time.formatUrlDate(new Date(start.date.getTime() + duration)),
+          aggregate: aggregate
+        }
+      }
+    }
+  }
+
+  this.startDateFromElement = function(element) {
+    var date = moment.tz(new Date(), Template.SolarNetwork.config.timezone);
     // Get date attributes
-    var year = parseInt(element.getAttribute('year'));
-    var month = parseInt(element.getAttribute('month'));
-    var week = parseInt(element.getAttribute('week'));
-    var day = parseInt(element.getAttribute('day'));
-    var weekday = parseInt(element.getAttribute('weekday'));
-    var hour = parseInt(element.getAttribute('hour'));
-    var minute = parseInt(element.getAttribute('minute'));
+    function a(n) { return parseInt(element.getAttribute(n)); }
+    var year = a('year'), month = a('month'), week = a('week'), day = a('day'), weekday = a('weekday'), hour = a('hour'), minute = a('minute');
     // Return current if no dates are set
-    if(isNaN(year) && isNaN(month) && isNaN(week) && isNaN(day) && isNaN(weekday) && isNaN(hour) && isNaN(minute)) return { current: true };
+    if(isNaN(year) && isNaN(month) && isNaN(week) && isNaN(day) && isNaN(weekday) && isNaN(hour) && isNaN(minute)) return null;
     // Relative date
     var period = null;
-    if(!isNaN(year) && year <= 0) { period = 'y'; date.setFullYear(date.getFullYear() + year); }
-    if(!isNaN(month) && month <= 0) { period = 'M'; date.setMonth(date.getMonth() + month); }
-    if(!isNaN(week) && week <= 0) { period = 'w'; date.setDate(date.getDate() + (week * 7)); }
-    if(!isNaN(day) && day <= 0) { period = 'd'; date.setDate(date.getDate() + day); }
-    if(!isNaN(weekday) && weekday <= 0) { period = 'd'; date.setDate(date.getDate() + weekday); }
-    if(!isNaN(hour) && hour <= 0) { period = 'h'; date.setHours(date.getHours() + hour); }
-    if(!isNaN(minute) && minute <= 0) { period = 'm'; date.setMinutes(date.getMinutes() + minute); }
+    if(!isNaN(year) && year <= 0) { period = 'y'; date.add(year, 'y'); }
+    if(!isNaN(month) && month <= 0) { period = 'M'; date.add(month, 'M'); }
+    if(!isNaN(week) && week <= 0) { period = 'w'; date.add(week, 'w'); }
+    if(!isNaN(day) && day <= 0) { period = 'd'; date.add(day, 'd'); }
+    if(!isNaN(weekday) && weekday <= 0) { period = 'd'; date.add(weekday, 'w'); }
+    if(!isNaN(hour) && hour <= 0) { period = 'h'; date.add(hour, 'h'); }
+    if(!isNaN(minute) && minute <= 0) { period = 'm'; date.add(minute, 'm'); }
     if(period) date = this.Time.roundToPeriod(date, period);
     // Offset date
-    if(!isNaN(year) && year > 0) { date.setFullYear(year); }
-    if(!isNaN(month) && month > 0) { date.setMonth(month - 1); }
+    if(!isNaN(year) && year > 0) { date.year(year); }
+    if(!isNaN(month) && month > 0) { date.month(month - 1); }
     if(!isNaN(week) && week > 0) {
-      date.setDate(date.getDate() - (date.getDay() - 1));//
-      date.setDate(date.getDate() + ((week - 1) * 7));
+      date.day(1);//
+      date.add(week - 1, 'w');
     }
-    if(!isNaN(day) && day > 0) { date.setDate(day); }
-    if(!isNaN(weekday) && weekday > 0) { date.setDate((date.getDate() - date.getDay()) + weekday); }
-    if(!isNaN(hour) && hour >= 0) { date.setHours(hour); }
-    if(!isNaN(minute) && minute >= 0) { date.setMinutes(minute); }
+    if(!isNaN(day) && day > 0) { date.date(day); }
+    if(!isNaN(weekday) && weekday > 0) { date.day(weekday); }
+    if(!isNaN(hour) && hour >= 0) { date.hour(hour); }
+    if(!isNaN(minute) && minute >= 0) { date.minute(minute); }
     // Return time object
-    return { date: date, period: period || 'd', current: false };
+    return { date: date, period: period || 'd' };
   }
 
   // Period from element
@@ -337,24 +326,33 @@ Template.Time = (function() {
     }
   }
 
+  this.aggregateFromDuration = function(duration) {
+    if(duration > 2629746000) return 'Month';
+    if(duration > 604800000) return 'Week';
+    if(duration > 86400000) return 'Day';
+    if(duration > 3600000) return 'Hour';
+    if(duration > 60000) return 'Minute';
+    return null;
+  }
+
   // Round to peiod
   this.roundToPeriod = function(date, period) {
-    var d = new Date(date);
-    d.setMilliseconds(0);
+    var d = moment.tz(date, Template.SolarNetwork.config.timezone);
+    d.millisecond(0);
     if(period == 's') return d;
-    d.setSeconds(0);
+    d.second(0);
     if(period == 'm') return d;
-    d.setMinutes(0);
+    d.minute(0);
     if(period == 'h') return d;
-    d.setHours(0);
+    d.hour(0);
     if(period == 'd') return d;
     if(period == 'w') {
-      d.setDate((d.getDate() - d.getDay()) + 1);
+      d.day(1);
       return d;
     }
-    d.setDate(1);
+    d.date(1);
     if(period == 'M') return d;
-    d.setMonth(0);
+    d.month(0);
     return d;
   }
 
@@ -372,21 +370,37 @@ Template.Time = (function() {
     }
   }
 
+  this.millisecondsFromPeriod = function(period) {
+    var p = this.Time.periodFromString(period);
+    if(!p) return null;
+    return p.value * this.Time.getPeriodMultiplier(p.period);
+  }
+
   // Format SolarNetwork date
   this.formatUrlDate = function(date) {
-    var y = date.getFullYear(), M = date.getMonth() + 1, d = date.getDate(), h = date.getHours(), m = date.getMinutes();
-    return `${y}-${M < 10 ? '0' + M : M}-${d < 10 ? '0' + d : d}T${h < 10 ? '0' + h : h}:${m < 10 ? '0' + m : m}`;
+    // var y = date.getFullYear(), M = date.getMonth() + 1, d = date.getDate(), h = date.getHours(), m = date.getMinutes();
+    // return `${y}-${M<10?'0'+M:M}-${d<10?'0'+d:d}T${h<10?'0'+h:h}:${m<10?'0'+m:m}`;
+    return date.toISOString().substring(0,16);
   }
 
   return this;
 })();
 
-Template.Math = (function() {
-  this.calculate = function(formula, input) {
+Template.Calculate = (function() {
+  this.func = function(formula, input) {
+    console.log('calculate ' + formula, input);
     return (function (f, i, g) {// (formular, input, global)
-      for(v in g) { this[v] = g[v] };
+      for(v in g) { this[v] = g[v] };// set global variables
       return eval(f);
-    })(formula, i, this.globalVariables);
+    })(formula, input, this.variables);
   }
 
+  this.round = function(value, decimals) {// Round to x decimal places
+    if(isNaN(decimals)) decimals = 2;
+    var multiplier = 1;
+    for(var d = 0; d < decimals; d++) { multiplier *= 10; }
+    return Math.round(value * multiplier) / multiplier;
+  }
+
+  return this;
 })();

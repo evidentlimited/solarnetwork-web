@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>SolarNetwork Template</title>
+    <script src="js/template.js"></script>
+    <!-- <script src="https://s3-ap-southeast-2.amazonaws.com/evident-solarnetwork-web/template/template-1.1.js"></script> -->
+    <script src="https://s3-ap-southeast-2.amazonaws.com/evident-solarnetwork-web/template/lib/hmac-sha1.js"></script>
+    <script src="https://s3-ap-southeast-2.amazonaws.com/evident-solarnetwork-web/template/lib/enc-base64.js"></script>
+    <data-config node="253" token="BqaUBw{B>G&Oj$Gg>0dk" secret="a}U`$vjvFd-gwFm<Dvx-+PqP&1q"/>
+    <style media="screen">
+      body { font-family: Arial; }
+      input[type="text"] { width: 100px; }
+      input[type="number"] { width: 30px; }
+      input.cal { width: 300px; }
+    </style>
+  </head>
+  <body>
+    &lt;data
+    source=<input id="source" type="text" value="/ZEHNZ/me/1/1">
+    metric=<input id="metric" type="text" value="total">
+    round=<input id="round" type="number" value="1">
+    year=<input id="year" type="number" value="">
+    month=<input id="month" type="number" value="">
+    week=<input id="week" type="number" value="">
+    weekday=<input id="weekday" type="number" value="">
+    day=<input id="day" type="number" value="">
+    hour=<input id="hour" type="number" value="">
+    minute=<input id="minute" type="number" value="">
+    period=<input id="period" type="text" value="">
+    aggregate=<input id="aggregate" type="text" value="">
+    update=<input id="update" type="text" value="">
+    &gt;
+
+    <br><br>
+
+    override=<input class="cal" id="override" type="text" value=""><br><br>
+    modify=<input class="cal" id="modify" type="text" value=""><br><br>
+    adjust=<input class="cal" id="adjust" type="text" value=""><br><br>
+
+    <br>
+
+    <input type="button" value="Test" onclick="TEST()">
+
+    <br><br>
+
+    <h4>Data element:</h4>
+    <div id="data-container">
+
+    </div>
+
+    <p id="result">
+
+    </p>
+
+    <script type="text/javascript">
+      var container = document.getElementById('data-container');
+      var result = document.getElementById('result');
+
+      var components = {
+        source: document.getElementById('source'),
+        metric: document.getElementById('metric'),
+        round: document.getElementById('round'),
+        year: document.getElementById('year'),
+        month: document.getElementById('month'),
+        week: document.getElementById('week'),
+        weekday: document.getElementById('weekday'),
+        day: document.getElementById('day'),
+        hour: document.getElementById('hour'),
+        minute: document.getElementById('minute'),
+        period: document.getElementById('period'),
+        aggregate: document.getElementById('aggregate'),
+        update: document.getElementById('update'),
+        override: document.getElementById('override'),
+        modify: document.getElementById('modify'),
+        adjust: document.getElementById('adjust')
+      };
+
+      function TEST() {
+        var elm = document.createElement('data');
+        for(c in components) {
+          if(/\S/.test(components[c].value)) {
+            elm.setAttribute(c, components[c].value);
+          }
+        }
+        container.innerHTML = '';
+        container.appendChild(elm);
+
+        var query = Template.Element.getElementQuery(elm);
+
+        var queryString = 'url: datum/' + query.type + '<br><br>';
+        for(p in query.params) {
+          queryString += `${p}: ${query.params[p]}<br>`;
+        }
+
+        result.innerHTML = queryString;
+      }
+    </script>
+  </body>
+
+</html>
