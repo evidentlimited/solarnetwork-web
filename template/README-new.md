@@ -1,4 +1,4 @@
-# Template
+# Template 1.1
 
 Template is a JavaScript package for templating [SolarNetwork](http://solarnetwork.net/) data onto into a HTML document without having to write any JavaScript.
 
@@ -178,8 +178,155 @@ This day 3 months ago:
 
 [Time periods](#time-period-syntax) can be used in combination with date attributes or on their own. For a description of period syntax look [here](#time-period-syntax).
 
-When used with dates data will be queries
+When used with dates can get a value over a period of time from the defined date.
 
+For example the last 10 days would be:
+
+```html
+<data source="energyMeter" metric="watts" day="-10" period="10d">...</data>
+```
+
+The second half of last month:
+
+```html
+<data source="energyMeter" metric="watts" month="-1" day="15" period="15d">...</data>
+```
+
+The first 3 months of this year:
+
+```html
+<data source="energyMeter" metric="watts" year="0" period="3M">...</data>
+```
+
+When periods are used without any date attributes, the period is relative.
+
+Note - no date rounding will be performed without date attributes so a period of 10 days will be the current time 10 days ago to the current time.
+
+For example the last 10 days:
+
+```html
+<data source="energyMeter" metric="watts" period="10d">...</data>
+```
+
+The last year:
+
+```html
+<data source="energyMeter" metric="watts" period="1y">...</data>
+```
+
+## Data modifications
+
+There are 3 attributes which can be used to modify data before displaying it, but before explaining these you will need an understanding of how the query response is processed because the data comes back in an array of datum objects, for an understanding of [SolarQuery](https://github.com/SolarNetwork/solarnetwork/wiki/SolarQuery-API) and the responses look [here](https://github.com/SolarNetwork/solarnetwork/wiki/SolarQuery-API).
+
+#### Query response processing
+
+SolarQuery returns a list of datum objects which contain things like the date, sourceId, nodeId and the defined metric or all metrics if none is defined.
+
+Query response where watts is the metric:
+
+```json
+[
+  {
+    "created": "2016-11-08 18:45:12.341Z",
+    "nodeId": 254,
+    "sourceId": "energyMeter",
+    "localDate": "2016-11-08",
+    "localTime": "18:45:12",
+    "watts": 1065.228
+  },
+  {
+    "created": "..."
+  }
+]
+```
+
+The response is iterated and the metric values are summed/averaged into an array, this array is represents the source attribute.
+
+For example where source has 2 sourceIds:
+
+```html
+<data source="energyMeter1,energyMeter2" metric="watts">...</data>
+```
+
+The array would look like [1065.228, 713.23] a value for energyMeter1 and energyMeter2 referenced as i[0] and i[1] ordered by the source attribute.
+
+So for example `i[0] + i[1]` stands for `energyMeter1 + energyMeter2`.
+
+Then these values are automatically summed/averaged into a single value, rounded and displayed.
+
+There are 3 points in which you can change how this data is handled override, modify and adjust.
+
+#### Adjust
+
+The adjust attribute is the simplest of the 3, it is calculated after all of the auto summing so you are only dealing with a single value. This value is referenced as `i`
+
+For example to get watts from kilowatts would look like this:
+
+```html
+<data source="energyMeter1" metric="kilowatts" adjust="i * 1000">...</data>
+```
+
+Or degrees celcius to degrees fahrenheit:
+
+```html
+<data source="temperature" metric="degreesCelcius" adjust="i * 9 / 5 + 32">...</data>
+```
+
+This can be useful for simple conversions such as the examples.
+
+#### Modify
+
+Modify is calculated after the values have been summed into an array, so this is generally used is combination with multiple sources.
+
+The array can be referenced as `i` followed by the index of the source.
+
+For example this is how you would structure `energyMeter1 + energyMeter2` where `i[0] = energyMeter1` and `i[1] = energyMeter2`:
+
+```html
+<data source="energyMeter1,energyMeter2" metric="watts" modify="i[0] + i[1]">...</data>
+```
+
+To get energyMeter1's percentage of energyMeter2 you can use:
+
+```html
+<data source="energyMeter1,energyMeter2" metric="watts" modify="(i[1] / i[0]) * 100">...</data>
+```
+
+Now if you want to make sure that percentage does not exceed 100 you can use an if statement:
+
+```html
+<data source="energyMeter1,energyMeter2" metric="watts" modify="(i[1] / i[0]) * 100 < 100 ? (i[1] / i[0]) * 100 : 100">...</data>
+```
+
+This can be simplified by defining the value as a variable:
+
+```html
+<data source="energyMeter1,energyMeter2" metric="watts" modify="var p = (i[1] / i[0]) * 100; p < 100 ? p : 100">...</data>
+```
+
+Or you can use the JavaScript math function min:
+
+```html
+<data source="energyMeter1,energyMeter2" metric="watts" modify="Math.min(100, (i[1] / i[0]) * 100)">...</data>
+```
+
+Note - The modify function is expected to return a number and adjust can be used which will be calculated after modify.
+
+#### Override
+
+Override is the most complicated since you are handing the query response, in this can `i` is the query response it's self, an array of datums.
+
+Note - override is expected to return a number, if override is set modify will not be executed (although adjust will be).
+
+An example of how you could modify the query response would be to running a loop on it and calculating on the fly:
+
+```html
+<data source="energyMeter1" metric="watts" override="var x = 0; for(d in i){ if(i[d].watts != null) x += i[d].watts; } x">...</data>
+```
+
+Note - the value needs to be checked if it exists as some datums don't contain the value.
+
+Note - at the end of the override attribute `x` is required to return the value.
 
 ## Date Attributes
 

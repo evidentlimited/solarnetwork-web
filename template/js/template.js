@@ -113,7 +113,7 @@ Template.Element = (function() {
         override = a('override'),
         modify = a('modify'),
         adjust = a('adjust'),
-        average = a('average') == 'false' ? false : element.hasAttribute('average'),
+        average = ['false', 'no'].indexOf(a('average')) == -1,
         debug = { queryResult: result };
 
     var calculated = [];
