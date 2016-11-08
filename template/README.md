@@ -1,153 +1,363 @@
-# SolarNetwork Template
+# Template 1.1
 
-Template is simple javascript library allowing you to template [SolarNetwork](http://solarnetwork.net) datapoints in HTML and have them fill in when the page loads.
+Template is a JavaScript package for templating [SolarNetwork](http://solarnetwork.net/) data onto into a HTML document without having to write any JavaScript.
 
-## Dependencies
+The idea is to make the process of displaying data as simple and flexible as possible.
 
-The template.js is what makes the magic happen and a few libraries are required for SolarNetwork authentication.
-
-Note - these scripts can be placed in any order and anywhere in your html, the template wont be called until the entire page is loaded.
+This is accomplished through custom HTML elements, for example to show the current temperature could look something like this:
 
 ```html
-<script src="js/template.js"></script>
-<!-- Required for authentication -->
-<script src="js/hmac-sha1.js"></script>
-<script src="js/enc-base64.js"></script>
+The temperature is currently <data source="temperature" metric="degreesCelcius">...</data>°C
 ```
 
-## Usage
-
-First a configuration element is required to authenticate the requests to SolarNetwork (this can also be anywhere in the HTML).
-
-The node attribute is the SolarNetwork nodeId and the token/secret should be a [SolarNetwork data token](https://data.solarnetwork.net/solaruser/u/sec/auth-tokens).
+When the page is loaded, the template script will retrieve the data replace the "..." inside the element with the actual value resulting in something like this:
 
 ```html
-<data-config node="200" token="xxx" secret="xxx"/>
+The temperature is currently 24°C
 ```
 
-Datapoints are defined by the data tag and the attributes, the value will be inserted within the tag.
+There is a lot more you can do with the data tag so lets get into it...
+
+## Prerequisites
+
+First you will need to include the script in the document:
 
 ```html
-<data source="sourceId" metric="total"></data>
-<data source="sourceId" metric="actual" round="1"></data>
+<script src="https://s3-ap-southeast-2.amazonaws.com/evident-solarnetwork-web/template/template-1.1.js" charset="utf-8"></script>
 ```
 
-#### Data attributes
-Required:
-* source = SolarNetwork sourceId
-* metric = SolarNetwork sourceId value (e.g. watts, humidity)
+There are a number of dependencies that are loaded through the template script which you don't need to worry about, these include hmac-sha1 and enc-base64 for [SolarNetwork authentication](https://github.com/SolarNetwork/solarnetwork/wiki/SolarNet-API-authentication-scheme), then [moment](http://momentjs.com/) and [moment-timezone](http://momentjs.com/timezone/) for working with dates and times.
 
-Optional:
-* round = the maximum number of decimal places (default = 2, can be set to 0 for a whole number)
-* year, month, week, weekday, day, hour, minute ([read more](#date-queries))
-
-## Example
-
-Bringing it all together, an html page could look like this:
+Next you will need to include you SolarNetwork node details, this is done in the form of a data-config element.
 
 ```html
-<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    <title>SolarNetwork Template</title>
-    <script src="js/template.js"></script>
-    <script src="js/hmac-sha1.js"></script>
-    <script src="js/enc-base64.js"></script>
-    <data-config node="253" token="gh-28a;tZgC6T;^F*NL$" secret="7^BU1?xz;q6}<HRbQM+5RB}X0"/>
-  </head>
-  <body>
-    <h1>Zero energy house</h1>
-    <p>
-      Fridge: <data source="/ZEHNZ/me/1/3" metric="total"></data> kWh
-      <br>
-      Lighting: <data source="/ZEHNZ/me/1/4" metric="total" round="0"></data> kWh
-    </p>
-  </body>
-</html>
+<data-config node="254" token="xxxxx" secret="xxxxx"/>
 ```
 
-## Date queries
+The token and secret are that of a [data token](https://data.solarnetwork.net/solaruser/u/sec/auth-tokens) associated with you user account, these should be used with care as this is the internet.
+
+Note - The order of any of these elements are irrelevant, they can be placed anywhere within the html document.
+
+Once you have the script and configuration in the document you are ready to start adding data.
+
+## Data
+
+The data tag defines a source and metric within SolarNetwork with a number of attributes to define how the data is queried, modified and displayed.
+
+The simplest use case would be getting the current value, all this requires is a source and metric.
 
 ```html
-negative numbers and 0 are relative to the current date:
-<!-- yesterday -->
-<data day="-1">
-<!-- this week -->
-<data week="0">
-<!-- six months ago -->
-<data month="-6">
-
-positive numbers represent the date:
-<!-- 2015 -->
-<data year="2015">
-<!-- the 2nd of last month -->
-<data month="-1" day="2">
-<!-- the first Saturday of January -->
-<data month="1" weekday="6">
-<!-- this day last year -->
-<data year="-1" day="0">
-
-date attributes:
-<data year month week weekday day hour minute>
-
-dates can be used in combination with the period attribute:
-<!-- the last 3 year -->
-<data year="-3" period="3y">
-<!-- Monday to Friday last week -->
-<data week="-1" period="5d">
-
-period suffixes:
-<period year="1y" month="1M" week="1w" day="1d" hour="1h" minute="1m">
-
-the aggregate attribute will override the aggregate when querying SolarNet:
-<data aggregate="Day">
-<data month="-1" aggregate="Month">
+Current energy consumption <data source="energyMeter" metric="watts">...</data> W
 ```
 
-A full list of aggregates can be found [here](https://github.com/SolarNetwork/solarnetwork/wiki/SolarQuery-API-enumerated-types#aggregation-types)
+In SolarNetwork the source is refering to sourceId and the metric is the property of that sourceId.
 
-## Update
+#### Round
 
-You can make data "live" by adding the update attribute:
-```html
-<!-- updates default to seconds otherwise the syntax is identical to the period attribute -->
-<!-- update every 5 seconds -->
-<data update="5">
-<!-- update every 1 minute -->
-<data update="1m">
-<!-- update every 5 seconds -->
-<data update="5">
-```
+Numbers are automatically rounded to 2 decimal places, otherwise it can be set as an attribute, for example to get 5 decimal places you would include round="5":
 
 ```html
-<!-- Energy use yesterday -->
-<data source="/ZEHNZ/me/1" metric="total" day="-1" aggregate="Day"></data>
-<!-- Energy use on this day last year (NOTE day is required otherwise it will round to the start of the year)-->
-<data source="/ZEHNZ/me/1" metric="total" year="-1" day="0" aggregate="Day"></data>
-<!-- Energy use Last week -->
-<data source="/ZEHNZ/me/1" metric="total" week="-1" aggregate="Week"></data>
+Current energy consumption <data source="energyMeter" metric="watts" round="5">...</data> W
 ```
 
-Note - Aggregate isn't required, if it is left out it will be automatically set based on the query
+To make a whole number you can round to 0 (round="0").
 
-All date attributes
+#### Updates
+
+Updates are a way of making the data "realtime" it will update the data every x using the [time period syntax](#time-period-syntax).
+
+For example to update every minute look like:
+
 ```html
-<data year="-1" month="-1" week="-1" weekday="1" day="-1" hour="-1" minute="-1"></data>
+<data source="temperature" metric="degreesCelcius" update="1m">...</data>
 ```
 
-## Data processing
+Every 10 seconds would be:
 
-There are three levels of control over data processing (override, modify and adjust), each has a different input and all are expected to return a single value or string.
-The input variable can be referenced as "i".
+```html
+<data source="temperature" metric="degreesCelcius" update="10s">...</data>
+```
 
-The processing is done using javascript's eval() method, meaning you can use native javascript syntax.
+Note - if the update attribute only contains a number, it will default to seconds, e.g. update="20" will update every 20 seconds.
 
-Note - if override is set, modify will be ignored.
+#### Dates
 
-### TODO
+[Date attributes](#date-attributes) are a way of displaying historical, date specific and aggregated data. A full list of date attributes can be found [here](#date-attributes).
 
-* Add support for public data meaning no token is required.
-* Datapoints load once variables are set.
-* Implement HMAC-SHA1 hash and base64 encoding into template.js to remove dependencies.
-* Charts! `<chart source="..." metric="..." week="-1">`
+The attributes can be used in a few ways, the first being relative dates which are defined by negative numbers, essentially moving the current date back by the defined amount.
+
+For example yesterday would be:
+
+#### Relative (negative)
+
+```html
+<data source="energyMeter" metric="watts" day="-1">...</data>
+```
+
+6 months ago would look like:
+
+```html
+<data source="energyMeter" metric="watts" month="-6">...</data>
+```
+
+An hour and a half ago:
+
+```html
+<data source="energyMeter" metric="watts" hour="-1" minute="-30">...</data>
+```
+
+#### Representative (positive)
+
+The next way you can use dates are positive numbers which are not relative, they define the date reference.
+
+For example to get the first day of this month you would use:
+
+```html
+<data source="energyMeter" metric="watts" day="1">...</data>
+```
+
+2:30pm yesterday would be:
+
+```html
+<data source="energyMeter" metric="watts" day="-1" hour="14" minute="30">...</data>
+```
+
+February last year would look like:
+
+```html
+<data source="energyMeter" metric="watts" year="-1" month="2">...</data>
+```
+
+#### Rounding
+
+The date is rounded to the smallest defined negative attribute (e.g. day is used over year, minute is used over hour) note positive numbers don't affect rounding as they are calculated afterwards.
+
+In this example the hour, minute and second values would be set to 0. Making the date something like 2016-11-08 00:00:00
+
+```html
+<data source="energyMeter" metric="watts" day="-1">...</data>
+```
+
+This case would look something like 2015-01-01 00:00:00
+
+```html
+<data source="energyMeter" metric="watts" year="-1">...</data>
+```
+
+Positive/representative dates are calculated after rounding meaning you can use combinations of positive and negative numbers to get a broad range of dates.
+
+For example the 1st of last month would look like:
+
+```html
+<data source="energyMeter" metric="watts" month="-1" day="1">...</data>
+```
+
+March 2 years ago:
+
+```html
+<data source="energyMeter" metric="watts" year="-2" month="3">...</data>
+```
+
+#### Rounding without adjusting (zero)
+
+If rounding is desired but you don't want to adjust the date, 0 can be used which will be interpreted as a negative number but wont actually change the date.
+
+For example to get this month last year:
+
+```html
+<data source="energyMeter" metric="watts" year="-1" month="0">...</data>
+```
+
+This day 3 months ago:
+
+```html
+<data source="energyMeter" metric="watts" month="-3" day="0">...</data>
+```
+
+## Time periods
+
+[Time periods](#time-period-syntax) can be used in combination with date attributes or on their own. For a description of period syntax look [here](#time-period-syntax).
+
+When used with dates can get a value over a period of time from the defined date.
+
+For example the last 10 days would be:
+
+```html
+<data source="energyMeter" metric="watts" day="-10" period="10d">...</data>
+```
+
+The second half of last month:
+
+```html
+<data source="energyMeter" metric="watts" month="-1" day="15" period="15d">...</data>
+```
+
+The first 3 months of this year:
+
+```html
+<data source="energyMeter" metric="watts" year="0" period="3M">...</data>
+```
+
+When periods are used without any date attributes, the period is relative.
+
+Note - no date rounding will be performed without date attributes so a period of 10 days will be the current time 10 days ago to the current time.
+
+For example the last 10 days:
+
+```html
+<data source="energyMeter" metric="watts" period="10d">...</data>
+```
+
+The last year:
+
+```html
+<data source="energyMeter" metric="watts" period="1y">...</data>
+```
+
+## Data modifications
+
+There are 3 attributes which can be used to modify data before displaying it, but before explaining these you will need an understanding of how the query response is processed because the data comes back in an array of datum objects, for an understanding of [SolarQuery](https://github.com/SolarNetwork/solarnetwork/wiki/SolarQuery-API) and the responses look [here](https://github.com/SolarNetwork/solarnetwork/wiki/SolarQuery-API).
+
+#### Query response processing
+
+SolarQuery returns a list of datum objects which contain things like the date, sourceId, nodeId and the defined metric or all metrics if none is defined.
+
+Query response where watts is the metric:
+
+```json
+[
+  {
+    "created": "2016-11-08 18:45:12.341Z",
+    "nodeId": 254,
+    "sourceId": "energyMeter",
+    "localDate": "2016-11-08",
+    "localTime": "18:45:12",
+    "watts": 1065.228
+  },
+  {
+    "created": "..."
+  }
+]
+```
+
+The response is iterated and the metric values are summed/averaged into an array, this array is represents the source attribute.
+
+For example where source has 2 sourceIds:
+
+```html
+<data source="energyMeter1,energyMeter2" metric="watts">...</data>
+```
+
+The array would look like [1065.228, 713.23] a value for energyMeter1 and energyMeter2 referenced as i[0] and i[1] ordered by the source attribute.
+
+So for example `i[0] + i[1]` stands for `energyMeter1 + energyMeter2`.
+
+Then these values are automatically summed/averaged into a single value, rounded and displayed.
+
+There are 3 points in which you can change how this data is handled override, modify and adjust.
+
+#### Adjust
+
+The adjust attribute is the simplest of the 3, it is calculated after all of the auto summing so you are only dealing with a single value. This value is referenced as `i`
+
+For example to get watts from kilowatts would look like this:
+
+```html
+<data source="energyMeter1" metric="kilowatts" adjust="i * 1000">...</data>
+```
+
+Or degrees celcius to degrees fahrenheit:
+
+```html
+<data source="temperature" metric="degreesCelcius" adjust="i * 9 / 5 + 32">...</data>
+```
+
+This can be useful for simple conversions such as the examples.
+
+#### Modify
+
+Modify is calculated after the values have been summed into an array, so this is generally used is combination with multiple sources.
+
+The array can be referenced as `i` followed by the index of the source.
+
+For example this is how you would structure `energyMeter1 + energyMeter2` where `i[0] = energyMeter1` and `i[1] = energyMeter2`:
+
+```html
+<data source="energyMeter1,energyMeter2" metric="watts" modify="i[0] + i[1]">...</data>
+```
+
+To get energyMeter1's percentage of energyMeter2 you can use:
+
+```html
+<data source="energyMeter1,energyMeter2" metric="watts" modify="(i[1] / i[0]) * 100">...</data>
+```
+
+Now if you want to make sure that percentage does not exceed 100 you can use an if statement:
+
+```html
+<data source="energyMeter1,energyMeter2" metric="watts" modify="(i[1] / i[0]) * 100 < 100 ? (i[1] / i[0]) * 100 : 100">...</data>
+```
+
+This can be simplified by defining the value as a variable:
+
+```html
+<data source="energyMeter1,energyMeter2" metric="watts" modify="var p = (i[1] / i[0]) * 100; p < 100 ? p : 100">...</data>
+```
+
+Or you can use the JavaScript math function min:
+
+```html
+<data source="energyMeter1,energyMeter2" metric="watts" modify="Math.min(100, (i[1] / i[0]) * 100)">...</data>
+```
+
+Note - The modify function is expected to return a number and adjust can be used which will be calculated after modify.
+
+#### Override
+
+Override is the most complicated since you are handing the query response, in this can `i` is the query response it's self, an array of datums.
+
+Note - override is expected to return a number, if override is set modify will not be executed (although adjust will be).
+
+An example of how you could modify the query response would be to running a loop on it and calculating on the fly:
+
+```html
+<data source="energyMeter1" metric="watts" override="var x = 0; for(d in i){ if(i[d].watts != null) x += i[d].watts; } x">...</data>
+```
+
+Note - the value needs to be checked if it exists as some datums don't contain the value.
+
+Note - at the end of the override attribute `x` is required to return the value.
+
+## Date Attributes
+
+The date attributes are what you would expect, for a description of how they are used check out the [dates section](#dates).
+
+A full list of date attributes:
+
+* minute
+* hour
+* day
+* weekday (e.g. 0 = Sunday, 1 = Monday, 6 = Saturday)
+* week
+* month
+* year
+
+## Time period syntax
+
+Time periods start with a number and end in a letter representing a time period for example "5s" is 5 seconds, "1d" is a day.
+
+A full list of time periods:
+
+* s - Second
+* m - Minute
+* h - Hour
+* d - Day
+* w - Week
+* M - Month
+* y - Year
+
+Some examples:
+
+```html
+<data period="5s" period="10d" period="1M" period="2y">
+```
