@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title></title>
+    <script src="js/load-test.js" charset="utf-8"></script>
+  </head>
+  <body>
+    <script type="text/javascript">
+      loadScript('https://s3-ap-southeast-2.amazonaws.com/evident-solarnetwork-web/template/lib/moment.min.js', function() {
+        loadScript('https://s3-ap-southeast-2.amazonaws.com/evident-solarnetwork-web/template/lib/moment-timezone-with-data.min.js', function() {
+          var d = moment(new Date());
+          console.log(d.tz("America/Los_Angeles").format());
+        })
+      })
+    </script>
+  </body>
+</html>

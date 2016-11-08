@@ -136,8 +136,18 @@ All date attributes
 <data year="-1" month="-1" week="-1" weekday="1" day="-1" hour="-1" minute="-1"></data>
 ```
 
+## Data processing
+
+There are three levels of control over data processing (override, modify and adjust), each has a different input and all are expected to return a single value or string.
+The input variable can be referenced as "i".
+
+The processing is done using javascript's eval() method, meaning you can use native javascript syntax.
+
+Note - if override is set, modify will be ignored.
+
 ### TODO
 
 * Add support for public data meaning no token is required.
+* Datapoints load once variables are set.
 * Implement HMAC-SHA1 hash and base64 encoding into template.js to remove dependencies.
 * Charts! `<chart source="..." metric="..." week="-1">`
