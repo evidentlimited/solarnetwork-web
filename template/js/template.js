@@ -2,7 +2,8 @@ var Template = (function() {
   window.onload = function() { Template.initiate(); };
 
   this.initiate = function() {
-    this.loadScript('https://s3-ap-southeast-2.amazonaws.com/evident-solarnetwork-web/template/lib/' + Template.dependencies[0], Template.dependencyCallback)
+    this.loadScript('https://www.gstatic.com/charts/loader.js', Template.googleChartDependencyCallback);
+    this.loadScript('https://s3-ap-southeast-2.amazonaws.com/evident-solarnetwork-web/template/lib/' + Template.dependencies[0], Template.dependencyCallback);
   }
 
   this.dependencies = [
@@ -16,13 +17,14 @@ var Template = (function() {
   this.config = {};
   this.variables = {};
   this.setVariable = function(key, value) { this.variables[key] = value; }
+  this.pendingCharts = [];
 
   this.loadScript = function(url, next) {
     var elm = document.createElement('script');
     elm.type = 'application/javascript';
     elm.src = url;
     elm.onload = next;
-    document.body.appendChild(elm);
+    document.head.appendChild(elm);
   }
 
   this.dependencyCallback = function() {
@@ -32,49 +34,57 @@ var Template = (function() {
       Template.SolarNetwork.getTimezone(function(err, timezone) {
         if(err) return console.log('Error getting timezone: ' + err);
         Template.SolarNetwork.config.timezone = timezone;
-        Template.Element.build();
+        Template.Datapoint.build();
       });
     } else {
       Template.loadScript('https://s3-ap-southeast-2.amazonaws.com/evident-solarnetwork-web/template/lib/' + Template.dependencies[dependencyLoadCount], Template.dependencyCallback);
     }
+  }
 
+  this.googleChartDependencyCallback = function() {
+    google.charts.load('current', {'packages':['line']});
+    google.charts.setOnLoadCallback(function() {
+      this.Chart.doneLoading();
+    });
   }
 
   return this;
 })();
 
-Template.Element = (function() {
+Template.Datapoint = (function() {
   this.all = function(tag) {
     return document.querySelectorAll(tag);
   }
 
   this.build = function() {
-    var variable = this.Element.all('var');
-    var data = this.Element.all('data');
+    var variable = this.Datapoint.all('var');
+    var data = this.Datapoint.all('data');
+    var chart = this.Datapoint.all('chart');
     for(var v = 0; v < variable.length; v++) {
-      this.Element.elementQuery(variable[v]);
+      this.Datapoint.elementQuery(variable[v]);
       if(variable[v].getAttribute('key') && variable[v].getAttribute('value')) {
         this.setVariable(variable[v].getAttribute('key'), variable[v].getAttribute('value'));
       }
     }
-    for(var d = 0; d < data.length; d++) this.Element.elementQuery(data[d]);
+    for(var d = 0; d < data.length; d++) this.Datapoint.elementQuery(data[d]);
+    for(var c = 0; c < chart.length; c++) this.Datapoint.elementQuery(chart[c]);
   }
 
-  this.elementQuery = function(element) {
-    var query = this.Element.getElementQuery(element);
+  this.elementQuery = function(Datapoint) {
+    var query = this.Datapoint.getElementQuery(Datapoint);
 
     if(!query) return;
 
     Template.SolarNetwork.query(query.type, query.params, function(err, result) {
       if(err) return console.error(err);
-      this.Element.elementUpdate(element, result);
+      this.Datapoint.elementUpdate(Datapoint, result);
     });
   }
 
-  this.getElementQuery = function(element) {
-    function a(n) { return element.getAttribute(n); }
+  this.getElementQuery = function(Datapoint) {
+    function a(n) { return Datapoint.getAttribute(n); }
     var source = a('source'), metric = a('metric'), aggregate = a('aggregate'), round = parseInt(a('round')) || 2,
-        time = Template.Time.fromElement(element),
+        time = Template.Time.fromElement(Datapoint),
         update = Template.Time.periodFromString(a('update'));
 
     if(!source || !metric) return;
@@ -103,8 +113,13 @@ Template.Element = (function() {
     return { type: type, params, params };
   }
 
-  this.elementUpdate = function(element, result) {
-    function a(n) { return element.getAttribute(n); }
+  this.elementUpdate = function(Datapoint, result) {
+    if(Datapoint.tagName == 'CHART') {
+      this.Chart.add(Datapoint, result);
+      return;
+    }
+
+    function a(n) { return Datapoint.getAttribute(n); }
     var sources = a('source').split(','),
         metric = a('metric'),
         update = a('update'),
@@ -155,9 +170,9 @@ Template.Element = (function() {
     calculated = this.Calculate.round(calculated, round);
     // set global variable
     if(key) this.setVariable(key, calculated);
-    element.value = calculated;
+    Datapoint.value = calculated;
 
-    if(element.tagName == 'DATA') element.innerHTML = calculated;
+    if(Datapoint.tagName == 'DATA') Datapoint.innerHTML = calculated;
 
     if(update) {
       var delay = this.Time.millisecondsFromPeriod(update);
@@ -166,7 +181,7 @@ Template.Element = (function() {
       debug.updateDelay = delay;
 
       setTimeout(function() {
-        Template.Element.elementQuery(element);
+        Template.Datapoint.elementQuery(Datapoint);
       }, delay);
     }
 
@@ -176,11 +191,63 @@ Template.Element = (function() {
   return this;
 })();
 
+Template.Chart = (function() {
+  this.pending = [];
+  this.loaded = false;
+
+  this.add = function(Datapoint, result) {
+    if(this.Chart.loaded) {
+      this.Chart.draw(Datapoint, result);
+    } else {
+      this.Chart.pending.push({ Datapoint: Datapoint, result: result });
+    }
+  }
+
+  this.doneLoading = function() {
+    this.Chart.loaded = true;
+    this.Chart.pending.forEach(function(pending) {
+      this.Chart.draw(pending.Datapoint, pending.result);
+    });
+    this.Chart.pending = [];
+  }
+
+  this.draw = function(Datapoint, result) {
+    function a(n) { return Datapoint.getAttribute(n); }
+    var sources = a('source').split(','),
+        labels = a('label').split(','),
+        metric = a('metric'),
+        width = parseInt(a('width')) || 900,
+        height = parseInt(a('height')) || 400;
+    var series = this.Data.chartFormat(result, sources, metric);
+
+    var data = new google.visualization.DataTable();
+    data.addColumn('date', 'time');
+    labels.forEach(function(label) { data.addColumn('number', label); });
+
+    data.addRows(series);
+
+    var options = {
+      chart: {
+        title: 'Test',
+        subtitle: 'Sub test...'
+      },
+      width: width,
+      height: height
+    };
+
+    var chart = new google.charts.Line(Datapoint);
+
+    chart.draw(data, options);
+  }
+
+  return this;
+})();
+
 Template.SolarNetwork = (function() {
   this.HOST = 'https://data.solarnetwork.net';
 
   this.setConfig = function() {
-    var elements = this.Element.all('data-config');
+    var elements = this.Datapoint.all('data-config');
     this.SolarNetwork.config = {};
     for(var e = 0; e < elements.length; e++) {
       if(elements[e].getAttribute('node')) this.SolarNetwork.config.node = elements[e].getAttribute('node');
@@ -260,11 +327,11 @@ Template.Time = (function() {
   this.periodSuffixes = ['s', 'm', 'h', 'd', 'w', 'M', 'y'];
 
   // Get Date from elements attributes
-  this.fromElement = function(element) {
+  this.fromElement = function(Datapoint) {
     var now = moment.tz(new Date(), Template.SolarNetwork.config.timezone);
-    var start = this.Time.startDateFromElement(element);
-    var period = this.Time.periodFromString(element.getAttribute('period'));
-    var aggregate = element.getAttribute('aggregate');
+    var start = this.Time.startDateFromElement(Datapoint);
+    var period = this.Time.periodFromString(Datapoint.getAttribute('period'));
+    var aggregate = Datapoint.getAttribute('aggregate');
     if(!start) {
       if(!period) {
         return { current: true };
@@ -280,19 +347,21 @@ Template.Time = (function() {
       } else {
         var duration = period.value * this.Time.getPeriodMultiplier(period.period);
         if(!aggregate) aggregate = this.Time.aggregateFromDuration(duration);
+        var endDate = this.Time.formatUrlDate(start.date.clone().add(duration, 'milliseconds'));
         return {
           start: this.Time.formatUrlDate(start.date),
-          end: this.Time.formatUrlDate(new Date(start.date.getTime() + duration)),
+          // end: this.Time.formatUrlDate(new Date(start.date.getTime() + duration)),
+          end: endDate,
           aggregate: aggregate
         }
       }
     }
   }
 
-  this.startDateFromElement = function(element) {
+  this.startDateFromElement = function(Datapoint) {
     var date = moment.tz(new Date(), Template.SolarNetwork.config.timezone);
     // Get date attributes
-    function a(n) { return parseInt(element.getAttribute(n)); }
+    function a(n) { return parseInt(Datapoint.getAttribute(n)); }
     var year = a('year'), month = a('month'), week = a('week'), day = a('day'), weekday = a('weekday'), hour = a('hour'), minute = a('minute');
     // Return current if no dates are set
     if(isNaN(year) && isNaN(month) && isNaN(week) && isNaN(day) && isNaN(weekday) && isNaN(hour) && isNaN(minute)) return null;
@@ -320,7 +389,7 @@ Template.Time = (function() {
     return { date: date, period: period || 'd' };
   }
 
-  // Period from element
+  // Period from Datapoint
   this.periodFromString = function(period) {
     if(period == null || period.length == 0) return null;
     var suffix = period[period.length - 1];
@@ -423,6 +492,29 @@ Template.Calculate = (function() {
     var multiplier = 1;
     for(var d = 0; d < decimals; d++) { multiplier *= 10; }
     return Math.round(value * multiplier) / multiplier;
+  }
+
+  return this;
+})();
+
+Template.Data = (function() {
+
+  this.chartFormat = function(list, sourceIds, metric) {
+    var data = [];
+    list.forEach(function(stamp) {
+      var sourceIndex = sourceIds.indexOf(stamp.sourceId);
+      if(sourceIndex == -1) return;
+      var date = new Date(stamp.created);
+      for (var d = 0; d < data.length; d++) {
+        if(data[d][0].getTime() == date.getTime()) return data[d][sourceIndex + 1] = stamp[metric];
+      }
+      var row = [date];
+      sourceIds.forEach(function(id) { row.push(null) });
+      row[sourceIndex + 1] = stamp[metric];
+      data.push(row);
+    });
+    console.log(data);
+    return data;
   }
 
   return this;
