@@ -100,8 +100,8 @@ Template.Datapoint = (function() {
     if(!query) return;
 
     Template.SolarNetwork.query(query.type, query.params, function(err, result, path) {
+      if(query.debug) { console.log(element, query, path, result); }
       if(err) return console.error(err);
-      if(query.debug) { console.log(element, query, path); }
       this.Datapoint.elementUpdate(element, result);
     });
   }
@@ -116,7 +116,7 @@ Template.Datapoint = (function() {
         update = Template.DateTime.periodFromString(a('update')),
         debug = a('debug');
 
-    if(!source || !metric) return;
+    if(!source) return;
 
     var params = {};
 
@@ -137,7 +137,7 @@ Template.Datapoint = (function() {
 
     var formatted = Template.SolarNetwork.formatSources(source);
 
-    params.sourceId = formatted.source.join(',');
+    params.sourceIds = formatted.source.join(',');
     if(formatted.metric.length == 1 && !metric) params.dataPath = 'i.' + formatted.metric[0];
     else if(formatted.metric.length == 0) params.dataPath = 'i.' + metric;
 
@@ -191,9 +191,9 @@ Template.Datapoint = (function() {
           var split = sources[s].split(':');
           if(split[0] == datum.sourceId) {
             var m = split.length > 1 ? split[1] : metric;
-            if(datum[metric] != null) {
+            if(datum[m] != null) {
               if(!calculated[s]) calculated[s] = { total: 0, count: 0 };
-              calculated[s].total += datum[metric];
+              calculated[s].total += datum[m];
               calculated[s].count++;
             }
           }
@@ -349,7 +349,7 @@ Template.Chart = (function() {
       data = new google.visualization.DataTable();
       data.addColumn('date', 'time');
       if(labels) {
-        labels.forEach(function(label) { data.addColumn('number', label); });
+        for(var s = 0; s < sources.length; s++) { data.addColumn('number', s < labels.length ? labels[s] : sources[s]); }
       } else {
         sources.forEach(function(source) { data.addColumn('number', source); });
       }
@@ -378,7 +378,7 @@ Template.Chart = (function() {
         colors: colors
       };
 
-      var chart = tag == 'chart-line' ? new google.charts.AreaChart(element) : new google.charts.Bar(element);
+      var chart = tag == 'chart-line' ? new google.charts.Line(element) : new google.charts.Bar(element);
       chart.draw(data, google.charts.Bar.convertOptions(options));
     }
   }
@@ -670,16 +670,32 @@ Template.DataProcessing = (function() {
   this.chartFormat = function(list, sourceIds, metric) {
     var data = [];
     list.forEach(function(stamp) {
-      var sourceIndex = sourceIds.indexOf(stamp.sourceId);
-      if(sourceIndex == -1) return;
-      var date = new Date(stamp.created);
-      for (var d = 0; d < data.length; d++) {
-        if(data[d][0].getTime() == date.getTime()) return data[d][sourceIndex + 1] = stamp[metric];
+      for(var s = 0; s < sourceIds.length; s++) {
+        var split = sourceIds[s].split(':');
+        var m = split.length > 1 ? split[1] : metric;
+        if(split[0] == stamp.sourceId && stamp[m] != null) {
+          var date = new Date(stamp.created);
+          for (var d = 0; d < data.length; d++) {
+            if(data[d][0].getTime() == date.getTime()) return data[d][s + 1] = stamp[m];
+          }
+          var row = [date];
+          sourceIds.forEach(function(id) { row.push(null) });
+          row[s + 1] = stamp[m];
+          data.push(row);
+        }
       }
-      var row = [date];
-      sourceIds.forEach(function(id) { row.push(null) });
-      row[sourceIndex + 1] = stamp[metric];
-      data.push(row);
+      console.log(data);
+      // ...........
+      // var sourceIndex = sourceIds.indexOf(stamp.sourceId);
+      // if(sourceIndex == -1) return;
+      // var date = new Date(stamp.created);
+      // for (var d = 0; d < data.length; d++) {
+      //   if(data[d][0].getTime() == date.getTime()) return data[d][sourceIndex + 1] = stamp[metric];
+      // }
+      // var row = [date];
+      // sourceIds.forEach(function(id) { row.push(null) });
+      // row[sourceIndex + 1] = stamp[metric];
+      // data.push(row);
     });
     return data;
   }
@@ -687,13 +703,17 @@ Template.DataProcessing = (function() {
   this.datumsToSumArray = function(result, sources, metric, average) {
     var calculated = [];
 
-
     result.forEach(function(datum) {
-      var idx = sources.indexOf(datum.sourceId);
-      if(idx != -1 && datum[metric] != null) {
-        if(!calculated[idx]) calculated[idx] = { total: 0, count: 0 };
-        calculated[idx].total += datum[metric];
-        calculated[idx].count++;
+      for(var s in sources) {
+        var split = sources[s].split(':');
+        if(split[0] == datum.sourceId) {
+          var m = split.length > 1 ? split[1] : metric;
+          if(datum[m] != null) {
+            if(!calculated[s]) calculated[s] = { total: 0, count: 0 };
+            calculated[s].total += datum[m];
+            calculated[s].count++;
+          }
+        }
       }
     });
 
