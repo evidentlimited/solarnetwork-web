@@ -118,10 +118,28 @@ Template.Datapoint = (function() {
 
     if(!source || !metric) return;
 
-    var params = {
-      [source.indexOf(',') == -1 ? 'sourceId' : 'sourceIds']: source,
-      dataPath: 'i.' + metric
-    };
+    var params = {};
+
+      // [source.indexOf(',') == -1 ? 'sourceId' : 'sourceIds']: source
+    // };
+
+    // if(source.indexOf(':') == -1) {
+    //   params.sourceIds = source;
+    //   params.dataPath = 'i.' + metric;
+    // } else {
+    //   var sourceList = [];
+    //   var metricList = [];
+    //   source.split(',').forEach(function(s) {
+    //     var split = s.split(':');
+    //     if(sourceList.indexOf(split[0] != null))
+    //   });
+    // }
+
+    var formatted = Template.SolarNetwork.formatSources(source);
+
+    params.sourceId = formatted.source.join(',');
+    if(formatted.metric.length == 1 && !metric) params.dataPath = 'i.' + formatted.metric[0];
+    else if(formatted.metric.length == 0) params.dataPath = 'i.' + metric;
 
     var type = '';
 
@@ -139,7 +157,7 @@ Template.Datapoint = (function() {
       }
     }
 
-    return { type: type, params: params, debug: debug };
+    return { type: type, params: params, debug: debug != null };
   }
 
   this.elementUpdate = function(element, result) {
@@ -169,11 +187,16 @@ Template.Datapoint = (function() {
       debug.overrideResult = calculated;
     } else {
       result.forEach(function(datum) {
-        var idx = sources.indexOf(datum.sourceId);
-        if(idx != -1 && datum[metric] != null) {
-          if(!calculated[idx]) calculated[idx] = { total: 0, count: 0 };
-          calculated[idx].total += datum[metric];
-          calculated[idx].count++;
+        for(var s in sources) {
+          var split = sources[s].split(':');
+          if(split[0] == datum.sourceId) {
+            var m = split.length > 1 ? split[1] : metric;
+            if(datum[metric] != null) {
+              if(!calculated[s]) calculated[s] = { total: 0, count: 0 };
+              calculated[s].total += datum[metric];
+              calculated[s].count++;
+            }
+          }
         }
       });
       for(c in calculated) { calculated[c] = average ? calculated[c].total / calculated[c].count : calculated[c].total };
@@ -297,8 +320,9 @@ Template.Chart = (function() {
         subtitle = a('subtitle') || null,
         average = ['false', 'no'].indexOf(a('average')) == -1,
         color = a('color') || 'black',
-        background = a('background') || 'white',
-        gridlines = a('gridlines')
+        background = a('background') || 'none',
+        gridlines = a('gridlines'),
+        stacked = a('stacked'),
         colors = a('colors');
 
 
@@ -354,7 +378,7 @@ Template.Chart = (function() {
         colors: colors
       };
 
-      var chart = tag == 'chart-line' ? new google.charts.Line(element) : new google.charts.Bar(element);
+      var chart = tag == 'chart-line' ? new google.charts.AreaChart(element) : new google.charts.Bar(element);
       chart.draw(data, google.charts.Bar.convertOptions(options));
     }
   }
@@ -448,6 +472,21 @@ Template.SolarNetwork = (function() {
     req.open('GET', this.SolarNetwork.HOST + '/solarquery/api/v1/pub/range/interval?nodeId=' + this.SolarNetwork.config.node, true);
     req.setRequestHeader('Accept', `application/json`);
     req.send();
+  }
+
+  this.formatSources = function(source) {
+    var formatted = {};
+    if(source.indexOf(':') == -1) {
+      formatted = { source: source.split(','), metric: [] };
+    } else {
+      formatted = { source: [], metric: [] };
+      source.split(',').forEach(function(s) {
+        var split = s.split(':');
+        if(formatted.source.indexOf(split[0] == -1)) formatted.source.push(split[0]);
+        if(split.length > 1 && formatted.metric.indexOf(split[1]) == -1) formatted.metric.push(split[1]);
+      });
+    }
+    return formatted;
   }
 
   return this;
