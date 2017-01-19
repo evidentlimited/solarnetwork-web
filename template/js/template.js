@@ -39,7 +39,7 @@ var SolarTemplate = (function() {
       SolarTemplate.done = true;
       SolarTemplate.update();
     } else {
-      SolarTemplate.loadScript('https://s3-ap-southeast-2.amazonaws.com/evident-solarnetwork-web/template/lib/' + SolarTemplate.dependencies[dependencyLoadCount], SolarTemplate.dependencyCallback);
+      SolarTemplate.loadScript('https://s3-ap-southeast-2.amazonaws.com/evident-solarnetwork-web/template/lib/' + SolarTemplate.dependencies[SolarTemplate.dependencyLoadCount], SolarTemplate.dependencyCallback);
     }
   }
 
@@ -59,7 +59,7 @@ var SolarTemplate = (function() {
       console.log('Update');
       SolarTemplate.SolarNetwork.setConfig();
       SolarTemplate.SolarNetwork.getTimezone(function(err, timezone) {
-        if(err) return console.log('Error getting timezone: ' + err);
+        if(err) return console.log('Error getting timezone', err);
         SolarTemplate.SolarNetwork.config.timezone = timezone;
         SolarTemplate.Datapoint.build();
       });
